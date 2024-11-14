@@ -3,7 +3,6 @@ import pandas as pd
 import joblib
 import shap
 import matplotlib.pyplot as plt
-import numpy as np
 from streamlit_shap import st_shap
 
 # 设置页面配置
@@ -33,7 +32,7 @@ st.markdown(
 )
 
 # 页面标题和说明
-st.title("Predictive XGBoost Machine Learning App for Pressure Insury in ICU")
+st.title("Predictive XGBoost Machine Learning App for Pressure Injury in ICU")
 st.subheader("This app allows you to input clinical data and predicts outcomes using an XGBoost model.")
 st.write("---")  # 分隔线
 
@@ -43,11 +42,10 @@ col1, col2, col3 = st.columns(3)
 with col1:
     Days_in_ICU = st.number_input("Days in ICU (days)", min_value=0, value=3)
     Department_Transfer = st.selectbox("Department Transfer", ("Yes", "No"))
-    
-with col2:
-    Glucose = st.number_input("Glucose (mg/dL)", min_value=0.0, value=5.6)
-    Neutrophil_Count = st.number_input("Neutrophil Count (*10^9/L)", min_value=0.0, value=0.2)
     Consciousness = st.selectbox("Consciousness (coma)", ("Yes", "No"))
+with col2:
+    Glucose = st.number_input("Glucose (mg/dL)", min_value=0.0, value=5.0)
+    Neutrophil_Count = st.number_input("Neutrophil Count (*10^9/L)", min_value=0.0, value=4.0)
     Serum_Albumin = st.number_input("Serum Albumin (g/dL)", min_value=0.0, value=35.0)
 
 with col3:
@@ -62,12 +60,20 @@ if st.button("Predict"):
     # 载入模型
     clf = joblib.load("xgb_model.pkl")
     
-    # 将选择框转换为0/1
-    X = pd.DataFrame([[Department_Transfer, Consciousness, Mechanical_Ventilation, Sedatives, 
-                       Warming_Blanket, Days_in_ICU, Serum_Albumin, Neutrophil_Count, Glucose, Smoking_History]],
+    # 将选择框转换为0/1，仅对布尔类型变量执行替换操作
+    bool_columns = ["Department_Transfer", "Consciousness", "Mechanical_Ventilation", "Sedatives", 
+                    "Warming_Blanket", "Smoking_History"]
+    
+    X = pd.DataFrame([[Department_Transfer, Consciousness, Mechanical_Ventilation, Sedatives, Warming_Blanket, Smoking_History, 
+                       Days_in_ICU, Serum_Albumin,Neutrophil_Count, Glucose]],
                      columns=clf.feature_names_in_)
-
-    X = X.replace({"Yes": 1, "No": 0})
+    
+    # 仅替换布尔型数据
+    X[bool_columns] = X[bool_columns].replace({"Yes": 1, "No": 0})
+    
+    # 确保所有数值列被转换为数值类型（float）
+    X[["Glucose", "Neutrophil_Count", "Serum_Albumin", "Days_in_ICU"]] = X[["Glucose", "Neutrophil_Count", 
+                                                                               "Serum_Albumin", "Days_in_ICU"]].apply(pd.to_numeric, errors='coerce')
     
     # 模型预测
     prediction = clf.predict(X)[0]
